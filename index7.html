@@ -1,0 +1,1803 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <title>Morpion Solitaire – Croix de Malte</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="preload" as="image" href="images/monfond.jpg">
+
+
+  <style>
+  /* === Mise en page générale === */
+
+
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+
+  background-image: url("images/monfond.jpg");
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+}
+
+/* Fade-in du fond une fois chargé */
+body {
+  opacity: 0;
+  transition: opacity 0.3s ease-out;
+}
+
+body.bg-ready {
+  opacity: 1;
+}
+
+#gameContainer {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+/* === TOP BAR === */
+
+#topBar {
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  gap: 40px;
+  background: #333;
+  color: white;
+  padding: 10px 20px;
+}
+
+#titleArea h1 {
+  margin: 0;
+  font-size: 24px;
+}
+
+#titleArea,
+#statusArea,
+#buttonsArea {
+  display: inline-block;
+  vertical-align: top;
+}
+
+#subtitle {
+  font-size: 14px;
+  opacity: 0.9;
+}
+
+#statusArea {
+  text-align: right;
+  font-size: 15px;
+  width: 260px;
+  flex-shrink: 0;
+}
+
+#statusArea .label {
+  font-weight: 600;
+}
+
+/* === BOUTONS === */
+
+#buttonsArea {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.main-btn {
+  padding: 8px 14px;
+  border: none;
+  cursor: pointer;
+  border-radius: 4px;
+  font-size: 14px;
+  white-space: nowrap;
+  background: #0078d4;
+  color: white;
+  transition: opacity 0.2s, background-color 0.2s;
+}
+
+.main-btn:hover {
+  opacity: 0.85;
+  background-color: #006cc0;
+}
+
+.main-btn.disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+
+/* === ZONE PRINCIPALE === */
+
+#mainArea {
+  display: flex;
+  flex: 1;
+  overflow: visible;
+  align-items: flex-start;
+}
+
+/* === DESSIN DES ICONES === */
+
+.arrow-icon {
+  width: 35px;
+  height: 35px;
+  vertical-align: middle;
+  margin-right: 6px;
+  border-radius: 8px; /* si tes icônes ont des coins arrondis */
+}
+
+
+/* === BOARD WRAPPER === */
+
+
+#boardWrapper {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+  padding-top: 20px;
+  padding-left: 60px;
+  position: relative;
+  box-sizing: border-box;
+  min-height: 700px;
+}
+
+/* === CADRE EN BOIS === */
+
+.board-frame {
+  border: 30px solid transparent;
+  background-clip: padding-box;
+  border-image: url("images/plateau.jpg") 30 round;
+}
+
+/* === CANVAS CONTAINER === */
+
+#canvasContainer {
+  position: relative;
+  width: 700px;
+  height: 700px;
+  z-index: 1;
+}
+
+#canvasContainer::before {
+  content: "";
+  position: absolute;
+
+  width: 780px;
+  height: 780px;
+
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+
+  background: radial-gradient(
+    circle,
+    rgba(255,255,255,0.25) 40%,
+    rgba(0,0,0,0.25) 100%
+  );
+
+  pointer-events: none;
+  z-index: 0;
+}
+
+
+@keyframes shimmerMove {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+
+#gameCanvas {
+  position: relative;
+  z-index: 1;
+}
+
+/* Repères */
+
+#topLabels, #leftLabels {
+  position: absolute;
+  pointer-events: none;
+}
+
+#topLabels span, #leftLabels span {
+  position: absolute;
+  font-size: 12px;
+  color: #444;
+}
+
+/* Repères du haut */
+#topLabels {
+  top: -22px;
+  left: 0;
+  width: 700px;
+}
+
+/* Repères de gauche */
+#leftLabels {
+  left: -20px;
+  top: 0;
+  height: 700px;
+}
+
+/* === CANVAS === */
+
+#gameCanvas {
+  width: 700px !important;
+  height: 700px !important;
+  background: #fafafa;
+  display: block;
+  position: relative;
+  z-index: 2;
+}
+
+/* === FLASH MESSAGE ===*/
+
+#flashContainer {
+  position: fixed;
+  top: 120px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  pointer-events: none;
+}
+
+.flashMessage {
+  background: rgba(30, 30, 30, 0.92); /* noir doux */
+  box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+  color: #fff;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 14px;
+  opacity: 0;
+  transform: translateY(-10px);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.flashMessage.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+
+/* === PANEL HISTORIQUE === */
+
+#sidePanel {
+  margin-top: 10px;
+  width: 320px;
+  min-width: 320px;
+  max-width: 320px;
+  background: #fafafa; /* gris très clair */
+  border-right: 1px solid #e0e0e0;
+  border-left: 1px solid #e0e0e0;
+  padding: 20px 12px 10px 12px;
+  box-sizing: border-box;
+  box-shadow: 0 0 8px rgba(0,0,0,0.25);
+  border-radius: 8px;
+}
+
+/* === TITRE HISTORIQUE === */
+
+#historyTitle {
+  color: #222; /* noir doux */
+  font-weight: 600;
+  margin: 0 0 12px 0;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+/* === LISTE HISTORIQUE === */
+
+#historyPanel {
+  max-height: 700px;
+  overflow-y: auto;
+}
+
+#historyList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  font-size: 13px;
+}
+
+#historyList li {
+  padding: 4px 0;
+  color: #444; /* gris foncé lisible */
+  border-bottom: 1px dashed #e6e6e6;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Couleurs harmonisées pour les gains/pertes */
+
+#historyList li.gain {
+  color: #008a00; /* vert vif mais propre */
+  font-weight: 600;
+}
+
+#historyList li.loss {
+  color: #cc0000; /* rouge net */
+  font-weight: 600;
+}
+
+#historyList li.neutral {
+  color: #222; /* noir doux */
+}
+	
+/* === HELP OVERLAY === */
+
+#helpOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.6);
+  display: none;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+#helpContent {
+  background: white;
+  padding: 20px;
+  width: 600px;
+  max-width: 90%;
+  border-radius: 8px;
+  position: relative;
+  box-sizing: border-box;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.close-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: #d00000;
+  color: white;
+  border: none;
+  padding: 6px 10px;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+/* === JOKER EFFECTS === */
+
+#jokerEffectContainer {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: visible;
+}
+
+.joker-float,
+.joker-loss {
+  position: absolute;
+  font-size: 20px;
+  font-weight: bold;
+  animation: floatUp 1s ease-out forwards;
+}
+
+.joker-float {
+  color: #00aa00;
+}
+
+.joker-loss {
+  color: #d00000;
+}
+
+@keyframes floatUp {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-40px);
+  }
+}
+
+/* === CLIGNOTEMENT === */
+
+.blink {
+  animation: blinkAnim 0.4s ease-in-out 2;
+}
+
+
+  @keyframes blinkAnim {
+    0% {
+      transform: scale(1);
+    }
+    50% {
+      transform: scale(1.4);
+    }
+    100% {
+      transform: scale(1);
+    }
+  }
+
+/* === Bulle tutoriel stylée === */
+#tutorialBubble {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  max-width: 400px;
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 10px;
+  padding: 12px 16px;
+  font-size: 15px;
+  font-weight: bold;
+  color: #333;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  border: 1px solid #ddd;
+  display: none;
+  z-index: 50;
+  line-height: 1.3;
+
+  /* fade-in / fade-out */
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+/* flèche triangulaire */
+#tutorialBubble::after {
+  content: "";
+  position: absolute;
+  top: -10px;
+  left: 20px;
+  border-width: 0 10px 10px 10px;
+  border-style: solid;
+  border-color: transparent transparent rgba(255,255,255,0.95) transparent;
+  filter: drop-shadow(0 -2px 2px rgba(0,0,0,0.1));
+}
+
+
+#endGameOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.4);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 99999;
+}
+
+#endGameOverlay.hidden {
+  display: none;
+}
+
+#endGamePanel {
+  background: #fafafa;
+  padding: 30px 40px;
+  border-radius: 10px;
+  box-shadow: 0 0 12px rgba(0,0,0,0.15);
+  text-align: center;
+  border: 1px solid #e0e0e0;
+}
+
+#endGamePanel h2 {
+  margin-top: 0;
+  color: #222;
+}
+
+#endGamePanel p {
+  font-size: 18px;
+  margin: 10px 0 20px 0;
+  color: #444;
+}
+
+#endGamePanel .main-btn {
+  background-color: #0078d4;
+  color: white;
+}
+
+#endGamePanel .main-btn:hover {
+  background-color: #006cc0; /* bleu plus sombre */
+  opacity: 0.9;
+}
+
+
+#restartButton {
+  padding: 10px 20px;
+  background: #007acc;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 15px;
+}
+
+#restartButton:hover {
+  background: #005fa3;
+}
+
+#closeEndGame:hover {
+    background-color: var(--accent-color-hover);
+    transform: translateY(-2px);
+}
+
+#closeEndGame:active {
+    transform: translateY(0);
+}
+
+.hidden {
+  opacity: 0;
+  transform: translateY(-20px) scale(0.98);
+  transition: opacity 0.4s ease, transform 0.4s ease;
+}
+
+.show {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+/* === Animation premium : glissé + rebond amorti === */
+
+.slide-in-premium {
+  opacity: 0;
+  transform: translateX(120%) rotate(3deg) scale(0.95);
+  transition:
+    opacity 0.6s ease-out,
+    transform 1.8s cubic-bezier(0.25, 0.8, 0.3, 1);
+}
+
+.slide-in-premium.show {
+  opacity: 1;
+  transform: translateX(0) rotate(0deg) scale(1);
+}
+
+/* Rebond léger après l’arrivée */
+.slide-in-premium.show {
+  animation: boardBounce 0.35s ease-out 1 1.8s;
+}
+
+@keyframes boardBounce {
+  0%   { transform: translateX(0) scale(1); }
+  40%  { transform: translateX(-12px) scale(1.01); }
+  70%  { transform: translateX(4px) scale(0.995); }
+  100% { transform: translateX(0) scale(1); }
+}
+
+  </style>
+</head>
+
+<body>
+  <div id="gameContainer">
+
+    <!-- === TOP BAR === -->
+    <div id="topBar">
+
+      <div id="titleArea">
+        <h1>Morpion Solitaire – Croix de Malte</h1>
+        <div id="subtitle">
+          Objectif : créer des lignes de 5 points selon les règles du Morpion Solitaire
+        </div>
+      </div>
+
+      <div id="statusArea">
+        <div>
+          <span class="label">Score :</span>
+          <span id="scoreValue">0</span>
+        </div>
+        <div>
+          <span class="label">Temps :</span>
+          <span id="timerValue">00:00</span>
+        </div>
+        <div>
+          <span class="label">Jokers :</span>
+          <span id="jokersCombinedValue">0 / 0</span>
+        </div>
+        <div>
+          <span class="label">Retours :</span>
+          <span id="undoCount">0</span>
+        </div>
+      </div>
+
+      <div id="buttonsArea">
+        <button id="resetBtn" class="main-btn">Rejouer</button>
+        <button id="undoBtn" class="main-btn">Retour</button>
+        <button id="stepBtn" class="main-btn">Pas à Pas</button>
+        <button id="helpBtn" class="main-btn">Aide</button>
+        <button id="soundBtn" class="main-btn">Son : on</button>
+
+      </div>
+
+    </div> <!-- /topBar -->
+
+
+
+<!-- === MAIN AREA (historique + grille) === -->
+<div id="mainArea">
+
+  <!-- HISTORIQUE -->
+  <div id="sidePanel"> 
+    <h2 id="historyTitle">Historique</h2>   
+    <div id="historyPanel">     
+      <ul id="historyList"></ul>
+    </div>
+  </div>
+
+  <!-- GRILLE -->
+  <div id="boardWrapper">
+    <div id="canvasContainer" class="board-frame slide-in-premium">
+
+      <!-- Repères horizontaux -->
+      <div id="topLabels">
+        <span>1</span><span>5</span><span>10</span><span>15</span><span>20</span><span>25</span><span>30</span>
+      </div>
+
+      <!-- Repères verticaux -->
+      <div id="leftLabels">
+        <span>1</span><span>5</span><span>10</span><span>15</span><span>20</span><span>25</span><span>30</span>
+      </div>
+
+      <canvas id="gameCanvas" width="700" height="700"></canvas>
+
+      <div id="focusOverlay"></div>
+
+      <div id="tutorialBubble"></div>
+      <div id="jokerEffectContainer"></div>
+
+    </div>
+
+  </div>
+
+</div>
+
+
+
+    </div> <!-- /gameContainer -->
+
+
+  <!-- === HELP OVERLAY === -->
+  <div id="helpOverlay">
+    <div id="helpContent">
+
+      <button class="close-btn" id="closeHelpBtn">Fermer</button>
+
+      <h2>📖 Guide du joueur</h2>
+
+      <p><strong>🎯 Objectif :</strong> À partir des points de la Croix de Malte, tracer des lignes de 5 points alignés pour activer de nouveaux points, étendre le réseau et accumuler des jokers.</p>
+
+      <h3>🕹️ Commandes</h3>
+      <ul>
+        <li>Clic gauche sur un point → Sélectionner le point de départ.</li>
+        <li>Clic gauche sur un autre point → Valider une ligne de 5 points si l’alignement est correct.</li>
+        <li><strong>Rejouer</strong> → Réinitialiser la partie.</li>
+        <li><strong>Retour</strong> → Supprimer le dernier coup.</li>
+        <li><strong>Pas à Pas</strong> → Tutoriel animé montrant 3 exemples de lignes.</li>
+        <li><strong>Aide</strong> → Ouvrir/fermer ce panneau.</li>
+        <li><strong>Son</strong> → Activer/Désactiver les effets sonores.</li>
+      </ul>
+
+      <h3>🧩 Règles principales</h3>
+      <ul>
+        <li>Une ligne doit comporter <strong>exactement 5 points alignés</strong>.</li>
+        <li>Les points déjà actifs peuvent être réutilisés.</li>
+        <li>Interdiction de réutiliser une ligne déjà tracée.</li>
+        <li>Une ligne doit contenir <strong>au moins 2 points actifs</strong>.</li>
+      </ul>
+
+      <h3>🃏 Jokers</h3>
+      <ul>
+        <li>5 points actifs → <strong>+1 joker</strong></li>
+        <li>4 points actifs → neutre</li>
+        <li>3 points actifs → <strong>−1 joker</strong></li>
+        <li>2 points actifs → <strong>−2 jokers</strong></li>
+        <li>Moins de 2 points actifs → coup refusé</li>
+      </ul>
+
+      <h3>📈 Score</h3>
+      <p>Chaque ligne validée ajoute <strong>+1 point</strong>.</p>
+
+      <h3>🗂️ Historique</h3>
+      <p>Affiche chaque ligne tracée, avec un code couleur.</p>
+
+      <h3>↩️ Annuler un coup</h3>
+      <p>Le bouton <strong>Retour</strong> retire la dernière ligne jouée.</p>
+
+      <h3>✝️ La Croix de Malte</h3>
+      <p>Le jeu commence avec une figure centrale pré‑activée.</p>
+
+      <h3>🎬 Mode Pas à Pas</h3>
+      <p>Tutoriel animé en 3 étapes.</p>
+
+      <h3>💡 Conseils</h3>
+      <p>Utilise les jokers avec stratégie.</p>
+
+    </div>
+  </div>
+
+
+<!-- === SONS === -->
+<audio id="clickSound" src="sounds/click.mp3" preload="auto"></audio>
+<audio id="errorSound" src="sounds/error.mp3" preload="auto"></audio>
+<audio id="successSound" src="sounds/success.mp3" preload="auto"></audio>
+<audio id="tutorialSound" src="sounds/tutorial.mp3" preload="auto"></audio>
+<audio id="jokerSound" src="sounds/joker.mp3" preload="auto"></audio>
+<audio id="jokerLossSound" src="sounds/jokerloss.mp3" preload="auto"></audio>
+<audio id="shadowSound" src="sounds/grid.mp3" preload="auto"></audio>
+
+<div id="flashContainer"></div>
+
+<div id="endGameOverlay" class="hidden">
+  <div id="endGamePanel">
+    <h2>Partie terminée</h2>
+    <p id="finalScore"></p>
+   <button id="closeEndGame" class="main-btn">OK</button>
+  </div>
+</div>
+
+  <script>
+
+// ===============================
+//   VARIABLES GLOBALES
+// ===============================
+
+document.getElementById("closeEndGame").addEventListener("click", () => {
+    document.getElementById("endGameOverlay").classList.add("hidden");
+});
+
+const size = 34;
+const offset = 20;
+const spacing = (700 - 2 * offset) / (size - 1);
+
+window.size = size;
+window.offset = offset;
+window.spacing = spacing;
+
+window.addEventListener("click", unlockAudio, { once: true });
+
+
+
+
+function unlockAudio() {
+  const ids = ["clickSound","errorSound","successSound","tutorialSound","jokerSound","jokerLossSound"];
+  ids.forEach(id => {
+    const a = document.getElementById(id);
+    a.volume = 0.001; // quasi inaudible
+
+    a.play().then(() => {
+      setTimeout(() => {
+        a.pause();
+        a.currentTime = 0;
+        a.volume = 1;
+      }, 30); // délai indispensable
+    }).catch(()=>{});
+  });
+}
+
+document.addEventListener("click", () => {
+  const ids = ["clickSound","errorSound","successSound","tutorialSound","jokerSound","jokerLossSound"];
+  ids.forEach(id => {
+    const a = document.getElementById(id);
+    // Débloque l'audio sans gêner le clic de jeu
+    setTimeout(() => {
+      a.play().catch(()=>{});
+      a.pause();
+      a.currentTime = 0;
+    }, 0);
+  });
+}, { once: true });
+
+(function() {
+  const size = window.size;
+  const offset = window.offset;
+  const spacing = window.spacing;
+
+  document.querySelectorAll('#topLabels span').forEach(span => {
+    const pos = parseInt(span.textContent, 10);
+    const x = offset + (pos - 1) * spacing;
+    span.style.left = (x - 6) + 'px';
+  });
+
+  document.querySelectorAll('#leftLabels span').forEach(span => {
+    const pos = parseInt(span.textContent, 10);
+    const y = offset + (pos - 1) * spacing;
+    span.style.top = (y - 6) + 'px';
+  });
+})();
+
+function flash(message) {
+  const div = document.createElement("div");
+  div.className = "flashMessage";
+  div.textContent = message;
+
+  document.getElementById("flashContainer").appendChild(div);
+
+  requestAnimationFrame(() => {
+    div.classList.add("show");
+  });
+
+  setTimeout(() => {
+    div.classList.remove("show");
+    setTimeout(() => div.remove(), 300);
+  }, 1500);
+}
+
+function showEndGamePanel() {
+    document.getElementById("finalScore").textContent = "Score final : " + score;
+
+    // Figer le jeu
+    gameOver = true;
+
+    // Désactiver le bouton Retour
+    document.getElementById("undoBtn").disabled = true;
+    document.getElementById("undoBtn").classList.add("disabled");
+
+    // Afficher le panneau de fin de partie
+    document.getElementById("endGameOverlay").classList.remove("hidden");
+}
+
+
+function checkGameOver() {
+    const moves = getPossibleMoves(); // ta fonction existante
+    if (moves.length === 0) {
+        showEndGamePanel();
+    }
+}
+
+function resetGameState() {
+  // État logique
+  gameOver = false;
+
+  selectedStart = null;
+  score = 0;
+  jokersAvailable = 0;
+  jokersTotal = 0;
+
+  activePoints.clear();
+  permanentPoints.clear();
+  usedEdges.clear();
+  validatedSegments = [];
+
+  undoCount = 0;
+  document.getElementById("undoCount").textContent = 0;
+
+  // Historique visuel
+  const historyList = document.getElementById("historyList");
+  if (historyList) {
+    historyList.innerHTML = "";
+  }
+
+  // Timer
+  resetTimer();          // remet timerSeconds = 0 et affichage "00:00"
+
+  // Compteurs UI
+  updateCounters();
+  updateTutorialButtonState();
+
+  // Nettoyage complet du canvas
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+}
+
+
+function getPossibleMoves() {
+    const moves = [];
+    const directions = [
+        {dx: 1, dy: 0},   // horizontal
+        {dx: 0, dy: 1},   // vertical
+        {dx: 1, dy: 1},   // diagonale ↘
+        {dx: 1, dy: -1}   // diagonale ↗
+    ];
+
+    for (let key of activePoints) {
+        const [x, y] = key.split(",").map(Number);
+
+        for (let dir of directions) {
+            const segment = [];
+
+            // Construire les 5 points du segment
+            for (let i = 0; i < 5; i++) {
+                const px = x + i * dir.dx;
+                const py = y + i * dir.dy;
+
+                // Hors grille
+                if (px < 0 || px >= size || py < 0 || py >= size) {
+                    segment.length = 0;
+                    break;
+                }
+
+                segment.push(`${px},${py}`);
+            }
+
+            if (segment.length !== 5) continue;
+
+            // Vérifier les edges
+            const edges = edgesOfSegment(segment);
+            const overlaps = edges.some(e => usedEdges.has(e));
+            if (overlaps) continue;
+
+            // Vérifier le nombre de points actifs
+            const activeCount = segment.filter(p => activePoints.has(p)).length;
+
+            // Règles des jokers (non destructives)
+            if (activeCount < 2) continue;
+            if (activeCount === 3 && jokersAvailable < 1) continue;
+            if (activeCount === 2 && jokersAvailable < 2) continue;
+
+            // Si on arrive ici → coup jouable
+            moves.push(segment);
+        }
+    }
+
+    return moves;
+}
+
+
+function playClickSound() {
+  if (!soundEnabled) return;
+  const a = document.getElementById("clickSound");
+  a.currentTime = 0;
+  a.play();
+}
+
+function playErrorSound() {
+  if (!soundEnabled) return;
+  const a = document.getElementById("errorSound");
+  a.currentTime = 0;
+  a.play();
+}
+
+function playSuccessSound() {
+  if (!soundEnabled) return;
+  const a = document.getElementById("successSound");
+  a.currentTime = 0;
+  a.play();
+}
+
+function playTutorialSound() {
+  if (!soundEnabled) return;
+  const a = document.getElementById("tutorialSound");
+  a.currentTime = 0;
+  a.play();
+}
+
+function playJokerGainSound() {
+  if (!soundEnabled) return;
+  const a = document.getElementById("jokerSound");
+  a.currentTime = 0;
+  a.play();
+}
+
+function playJokerLossSound() {
+  if (!soundEnabled) return;
+  const a = document.getElementById("jokerLossSound");
+  a.currentTime = 0;
+  a.play();
+}
+
+  const canvas = document.getElementById("gameCanvas");
+  const ctx = canvas.getContext("2d");
+
+  let selectedStart = null;
+  let score = 0;
+  
+  let gameOver = false;
+  
+  let activePoints = new Set();
+  let permanentPoints = new Set();
+  let usedEdges = new Set();
+  let validatedSegments = [];
+
+  let jokersAvailable = 0;
+  let jokersTotal = 0;
+
+  let soundEnabled = true;
+
+  let timerInterval = null;
+  let timerSeconds = 0;
+  let timerRunning = false;
+
+  let undoCount = 0;
+
+  // Tutoriel
+  let currentTutorialStep = 0;
+  let tutorialRunning = false;
+
+  const tutorialBtn = document.getElementById("stepBtn");
+
+  // Étapes du tutoriel
+  const tutorialSteps = [
+    {
+      message: "Exemple 1 : une ligne horizontale.", icon: "<img src='icons/arrow-horizontal.png' class='arrow-icon'>",
+      start: { x: 15, y: 12 },
+      end:   { x: 19, y: 12 }
+    },
+    {
+      message: "Exemple 2 : une ligne verticale.", icon: "<img src='icons/arrow-vertical.png' class='arrow-icon'>",
+      start: { x: 15, y: 12 },
+      end:   { x: 15, y: 16 }
+    },
+    {
+      message: "Exemple 3 : une ligne diagonale.", icon: "<img src='icons/arrow-diagonal.png' class='arrow-icon'>",
+      start: { x: 12, y: 16 },
+      end:   { x: 16, y: 12 }
+    }
+  ];
+
+  // ===============================
+  //   UTILITAIRES UI
+  // ===============================
+
+
+  function showTutorialBubble(text, icon = "") {
+  const bubble = document.getElementById("tutorialBubble");
+  bubble.innerHTML = icon ? `<span style="margin-right:6px;">${icon}</span>${text}` : text;
+  bubble.style.display = "block";
+  requestAnimationFrame(() => {
+    bubble.style.opacity = "1";
+  });
+}
+
+function hideTutorialBubble() {
+  const bubble = document.getElementById("tutorialBubble");
+  bubble.style.opacity = "0";
+  setTimeout(() => {
+    bubble.style.display = "none";
+  }, 300);
+}
+
+
+  function updateCounters() {
+    document.getElementById("scoreValue").textContent = score;
+    document.getElementById("jokersCombinedValue").textContent =
+  `${jokersAvailable} / ${jokersTotal}`;
+
+  }
+
+  function setButtonsEnabled(enabled) {
+    const buttons = document.querySelectorAll("#buttonsArea button");
+    buttons.forEach(btn => {
+      btn.disabled = !enabled;
+      btn.classList.toggle("disabled", !enabled);
+    });
+  }
+
+  function formatTime(sec) {
+    const m = Math.round(sec / 60).toString().padStart(2, "0");
+    const s = (sec % 60).toString().padStart(2, "0");
+    return `${m}:${s}`;
+  }
+
+  function startTimer() {
+    if (timerRunning) return;
+    timerRunning = true;
+ 
+    timerInterval = setInterval(() => {
+      timerSeconds++;
+      document.getElementById("timerValue").textContent = formatTime(timerSeconds);
+    }, 1000);
+  }
+
+
+  function resetTimer() {
+    clearInterval(timerInterval);
+    timerInterval = null;
+    timerSeconds = 0;
+    timerRunning = false;
+    document.getElementById("timerValue").textContent = "00:00";
+  }
+
+
+  // Pas à Pas : actif uniquement si aucune ligne n’a été jouée
+  function updateTutorialButtonState() {
+    if (validatedSegments.length > 0) {
+      tutorialBtn.disabled = true;
+      tutorialBtn.classList.add("disabled");
+    } else {
+      tutorialBtn.disabled = false;
+      tutorialBtn.classList.remove("disabled");
+    }
+  }
+
+  // ===============================
+  //   DESSIN DE LA GRILLE
+  // ===============================
+
+function drawGrid() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  ctx.strokeStyle = "#ddd";
+  ctx.lineWidth = 1;
+
+  // Lignes horizontales
+  for (let y = 0; y < size; y++) {
+    ctx.beginPath();
+    ctx.moveTo(offset, offset + y * spacing);
+    ctx.lineTo(offset + (size - 1) * spacing, offset + y * spacing);
+    ctx.stroke();
+  }
+
+  // Lignes verticales
+  for (let x = 0; x < size; x++) {
+    ctx.beginPath();
+    ctx.moveTo(offset + x * spacing, offset);
+    ctx.lineTo(offset + x * spacing, offset + (size - 1) * spacing);
+    ctx.stroke();
+  }
+}
+
+    // Points gris
+    for (let y = 0; y < size; y++) {
+      for (let x = 0; x < size; x++) {
+        ctx.beginPath();
+        ctx.arc(offset + x * spacing, offset + y * spacing, 3, 0, Math.PI * 2);
+        ctx.fillStyle = "#ccc";
+        ctx.fill();
+      }
+    }
+
+    // Segments déjà validés
+    validatedSegments.forEach(s => drawSegment(s.points));
+
+    // Points actifs
+    activePoints.forEach(key => {
+      const [px, py] = key.split(",").map(Number);
+      drawPoint(px, py);
+    });
+
+  function drawPoint(x, y, color = "#000") {
+    
+    ctx.beginPath();
+    ctx.arc(offset + x * spacing, offset + y * spacing, 3, 0, Math.PI * 2);
+    ctx.fillStyle = color;
+    ctx.fill();
+  }
+
+  function drawSegment(segmentPoints) {
+    const [sx, sy] = segmentPoints[0].split(",").map(Number);
+    const [ex, ey] = segmentPoints[4].split(",").map(Number);
+
+    ctx.strokeStyle = "#000";
+    ctx.lineWidth = 2;
+
+    ctx.beginPath();
+    ctx.moveTo(offset + sx * spacing, offset + sy * spacing);
+    ctx.lineTo(offset + ex * spacing, offset + ey * spacing);
+    ctx.stroke();
+  }
+
+  // ===============================
+  //   CROIX DE MALTE (POINTS PERMANENTS)
+  // ===============================
+
+function drawMaltaCross() {
+  let x = 0, y = 0;
+  const pts = [];
+  const add = (px, py) => pts.push({ x: px, y: py });
+  add(x, y);
+
+  const steps = [
+    [1, 0, 3],[0, 1, 3],[1, 0, 3],[0, 1, 3],
+    [-1, 0, 3],[0, 1, 3],[-1, 0, 3],[0, -1, 3],
+    [-1, 0, 3],[0, -1, 3],[1, 0, 3],[0, -1, 3]
+  ];
+
+  for (const [dx, dy, n] of steps) {
+    for (let i = 0; i < n; i++) {
+      x += dx;
+      y += dy;
+      add(x, y);
+    }
+  }
+
+  // Translation pour placer le point haut-gauche à (16,13)
+  const offsetX = 15;
+  const offsetY = 12;
+
+  pts.forEach(p => {
+    p.x += offsetX;
+    p.y += offsetY;
+  });
+
+  // Dessiner la croix
+  pts.forEach(p => {
+    drawPoint(p.x, p.y);
+    permanentPoints.add(`${p.x},${p.y}`);
+    activePoints.add(`${p.x},${p.y}`);
+  });
+}
+
+
+function redrawEverything() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // 1. Grille
+  drawGrid();
+
+  // 2. Croix de Malte
+  drawMaltaCross();
+
+  // 3. Segments restants
+  validatedSegments.forEach(seg => {
+    drawSegment(seg.points);
+  });
+  // 4. Redessiner tous les points actifs
+activePoints.forEach(key => {
+  const [x, y] = key.split(",").map(Number);
+  drawPoint(x, y);
+});
+
+}
+
+
+  // ===============================
+  //   ARÊTES
+  // ===============================
+
+  function edgeKey(a, b) {
+    return (a < b) ? `${a}|${b}` : `${b}|${a}`;
+  }
+
+  function edgesOfSegment(segmentKeys) {
+    const edges = [];
+    for (let i = 0; i < 4; i++) {
+      edges.push(edgeKey(segmentKeys[i], segmentKeys[i + 1]));
+    }
+    return edges;
+  }
+
+  // ===============================
+  //   JOKERS
+  // ===============================
+
+  function gainJoker() {
+  jokersAvailable++;
+  jokersTotal++;
+  updateCounters();
+
+  const container = document.getElementById("jokerEffectContainer");
+  const float = document.createElement("div");
+  float.className = "joker-float";
+  float.textContent = "+1";
+  float.style.left = (canvas.width / 2 - 10) + "px";
+  float.style.top  = (canvas.height / 2 - 20) + "px";
+  container.appendChild(float);
+  setTimeout(() => container.removeChild(float), 1000);
+
+  // Son de gain de joker
+  if (soundEnabled) {
+    const a = document.getElementById("jokerSound");
+    if (a && a.play) {
+      a.currentTime = 0;
+      a.play().catch(() => {});
+    }
+  }
+}
+
+
+  function loseJoker(amount) {
+  jokersAvailable -= amount;
+  updateCounters();
+
+  const container = document.getElementById("jokerEffectContainer");
+  const float = document.createElement("div");
+  float.className = "joker-loss";
+  float.textContent = `-${amount}`;
+  float.style.left = (canvas.width / 2 - 12) + "px";
+  float.style.top  = (canvas.height / 2 - 20) + "px";
+  container.appendChild(float);
+  setTimeout(() => container.removeChild(float), 1000);
+
+  // Son de perte de joker
+  if (soundEnabled) {
+    const a = document.getElementById("jokerLossSound");
+    if (a && a.play) {
+      a.currentTime = 0;
+      a.play().catch(() => {});
+    }
+  }
+}
+
+
+  // ===============================
+  //   VALIDATION D’UN SEGMENT (LIGNE DE 5 POINTS)
+  // ===============================
+
+  function getSegmentBetween(start, end) {
+    const dx = end.x - start.x;
+    const dy = end.y - start.y;
+
+    const aligned =
+      (dx === 0 && Math.abs(dy) === 4) ||
+      (dy === 0 && Math.abs(dx) === 4) ||
+      (Math.abs(dx) === 4 && Math.abs(dy) === 4);
+
+    if (!aligned) {
+      flash("Impossible", "error");
+      if (soundEnabled) {
+       const a = document.getElementById("errorSound");
+       if (a) { a.currentTime = 0; a.play().catch(() => {}); }
+     }
+     return null;
+    }
+
+
+    const stepX = Math.sign(dx);
+    const stepY = Math.sign(dy);
+
+    const segment = [];
+    for (let i = 0; i < 5; i++) {
+      segment.push(`${start.x + i * stepX},${start.y + i * stepY}`);
+    }
+
+    const edges = edgesOfSegment(segment);
+
+    const overlapsEdge = edges.some(e => usedEdges.has(e));
+    if (overlapsEdge) {
+      flash("Impossible", "error");
+      if (soundEnabled) {
+       const a = document.getElementById("errorSound");
+       if (a) { a.currentTime = 0; a.play().catch(() => {}); }
+      }
+      return null;
+    }
+
+    const activeCount = segment.filter(p => activePoints.has(p)).length;
+
+    if (activeCount < 2) {
+      flash("Impossible", "error");
+      if (soundEnabled) {
+        const a = document.getElementById("errorSound");
+        if (a) { a.currentTime = 0; a.play().catch(() => {}); }
+      }
+      return null;
+    }
+
+
+    if (activeCount === 5) {
+      gainJoker();
+      flash("+ 1 joker", "success");
+      // ✅ Son de succès
+      if (soundEnabled) {
+        const a = document.getElementById("successSound");
+        if (a) { a.currentTime = 0; a.play().catch(() => {}); }
+      }
+    } else if (activeCount === 3) {
+      if (jokersAvailable >= 1) {
+        loseJoker(1);
+        flash("- 1 joker", "info");
+      } else {
+        flash("Impossible", "error");
+	if (soundEnabled) {
+          const a = document.getElementById("errorSound");
+          if (a) { a.currentTime = 0; a.play().catch(() => {}); }
+        }
+        return null;
+
+      }
+    } else if (activeCount === 2) {
+      if (jokersAvailable >= 2) {
+        loseJoker(2);
+        flash("- 2 jokers", "info");
+      } else {
+        flash("Impossible", "error");
+        return null;
+      }
+    }
+
+    segment.forEach(key => {
+      if (!activePoints.has(key)) {
+        activePoints.add(key);
+        const [px, py] = key.split(",").map(Number);
+        drawPoint(px, py);
+      }
+    });
+
+    edges.forEach(e => usedEdges.add(e));
+    return { points: segment, edges, activeCount };
+   }
+
+  // ===============================
+  //   HISTORIQUE
+  // ===============================
+
+  function appendHistoryEntry(points, activeCount) {
+  const historyList = document.getElementById("historyList");
+  const li = document.createElement("li");
+
+  // Conversion des coordonnées internes (0-based) → affichage (1-based)
+  const displayed = points.map(p => {
+    const [x, y] = p.split(",").map(Number);
+    return `${x + 1},${y + 1}`;
+  });
+
+  li.textContent = displayed.join(" → ");
+
+  if (activeCount === 5) li.className = "gain";
+  else if (activeCount === 3 || activeCount === 2) li.className = "loss";
+  else li.className = "neutral";
+
+  historyList.appendChild(li);
+  historyList.scrollTop = historyList.scrollHeight;
+}
+
+
+  // ===============================
+  //   ANNULATION
+  // ===============================
+
+function undoLastMove() {
+  if (validatedSegments.length === 0) {
+    return;
+  }
+
+  const last = validatedSegments.pop();
+
+  undoCount++;
+  document.getElementById("undoCount").textContent = undoCount;
+
+  score = Math.max(0, score - 1);
+
+  last.edges.forEach(e => usedEdges.delete(e));
+
+  if (last.activeCount === 5) {
+    jokersAvailable = Math.max(0, jokersAvailable - 1);
+    jokersTotal     = Math.max(0, jokersTotal - 1);
+  } else if (last.activeCount === 3) {
+    jokersAvailable += 1;
+  } else if (last.activeCount === 2) {
+    jokersAvailable += 2;
+  }
+
+  last.points.forEach(key => {
+  const [kx, ky] = key.split(",").map(Number);
+
+  const stillUsed = validatedSegments.some(s =>
+    s.points.some(p => {
+      const [px, py] = p.split(",").map(Number);
+      return px === kx && py === ky;
+    })
+  );
+  if (!stillUsed && !permanentPoints.has(key)) {
+    activePoints.delete(key);
+  }
+});
+
+
+  const historyList = document.getElementById("historyList");
+  if (historyList.lastChild) historyList.removeChild(historyList.lastChild);
+
+  updateCounters();
+  redrawEverything();
+  updateTutorialButtonState();
+}
+
+  // ===============================
+  //   CLIGNOTEMENT D’UN POINT (TUTORIEL)
+  // ===============================
+
+  function blinkPoint(x, y, duration = 1200) {
+    return new Promise(resolve => {
+      let visible = true;
+
+      const interval = setInterval(() => {
+        drawGrid();
+        drawMaltaCross();
+
+        if (visible) {
+          const cx = offset + x * spacing;
+          const cy = offset + y * spacing;
+
+          ctx.beginPath();
+          ctx.arc(cx, cy, 12, 0, Math.PI * 2);
+          ctx.fillStyle = "rgba(255, 215, 0, 0.35)";
+          ctx.fill();
+
+          ctx.beginPath();
+          ctx.arc(cx, cy, 4, 0, Math.PI * 2);
+          ctx.fillStyle = "#ff0000";
+          ctx.fill();
+        }
+
+        visible = !visible;
+      }, 250);
+
+      setTimeout(() => {
+        clearInterval(interval);
+        drawGrid();
+        drawMaltaCross();
+        drawPoint(x, y, "#000");
+        resolve();
+      }, duration);
+    });
+  }
+
+  // ===============================
+  //   ANIMATION D’UNE LIGNE (TUTORIEL)
+  // ===============================
+
+  function animateLine(points) {
+    return new Promise(resolve => {
+      let i = 0;
+
+      const interval = setInterval(() => {
+        if (i >= points.length - 1) {
+          clearInterval(interval);
+          resolve();
+          return;
+        }
+
+        const p1 = points[i].split(",").map(Number);
+        const p2 = points[i + 1].split(",").map(Number);
+
+        ctx.strokeStyle = "#000";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(offset + p1[0] * spacing, offset + p1[1] * spacing);
+        ctx.lineTo(offset + p2[0] * spacing, offset + p2[1] * spacing);
+        ctx.stroke();
+
+        i++;
+      }, 200);
+    });
+  }
+
+  // ===============================
+  //   SEGMENT PROGRESSIF (TUTORIEL)
+  // ===============================
+
+  function drawSegmentProgressively(start, end, onComplete, isTutorial = false) {
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+  const stepX = Math.sign(dx);
+  const stepY = Math.sign(dy);
+
+  const segment = [];
+  for (let i = 0; i < 5; i++) {
+    segment.push(`${start.x + i * stepX},${start.y + i * stepY}`);
+  }
+
+  animateLine(segment).then(() => {
+    // On dessine les points visuellement dans tous les cas
+    segment.forEach(key => {
+      const [px, py] = key.split(",").map(Number);
+      drawPoint(px, py);
+    });
+
+    // Si ce n'est PAS le tutoriel → on enregistre vraiment le coup
+    if (!isTutorial) {
+      segment.forEach(key => {
+        if (!activePoints.has(key)) {
+          activePoints.add(key);
+        }
+      });
+
+      const edges = edgesOfSegment(segment);
+      edges.forEach(e => usedEdges.add(e));
+
+      validatedSegments.push({
+        points: segment,
+        edges: edges,
+        activeCount: 4 // Historique NEUTRE (noir)
+      });
+
+      score++;
+      updateCounters();
+      appendHistoryEntry(segment, 4);
+      updateTutorialButtonState();
+    }
+
+    if (onComplete) onComplete();
+  });
+}
+
+
+  // ===============================
+  //   TUTORIEL AUTOMATIQUE (PAS À PAS)
+  // ===============================
+
+  tutorialBtn.addEventListener("click", () => {
+  if (tutorialRunning) return;
+  playClickSound();
+
+  // 1) Remise à zéro complète, comme Rejouer
+  resetGameState();
+
+  // 2) Redessiner la grille de base
+  initGame();
+
+  // 3) Lancer le tutoriel
+  runTutorial();
+});
+
+
+
+  function runTutorial() {
+    if (tutorialRunning) return;
+
+    tutorialRunning = true;
+    currentTutorialStep = 0;
+
+    setButtonsEnabled(false);
+    tutorialBtn.disabled = true;
+    tutorialBtn.classList.add("disabled");
+
+    playTutorialStep();
+  }
+
+
+  function playTutorialStep() {
+  const step = tutorialSteps[currentTutorialStep];
+
+
+  if (!step) {
+    tutorialRunning = false;
+    showTutorialBubble("Tutoriel terminé !");
+    setTimeout(() => hideTutorialBubble(), 2000);
+    setButtonsEnabled(true);
+    updateTutorialButtonState();
+
+    drawGrid();
+    drawMaltaCross();
+
+          flash("A vous de jouer", "info");
+
+    return;
+  }
+
+  // Son de tutoriel à chaque étape
+  playTutorialSound();
+
+  // Bulle + couleur
+  showTutorialBubble(step.message, step.icon);
+  const bubble = document.getElementById("tutorialBubble");
+  bubble.className = "";
+  bubble.classList.add("step" + (currentTutorialStep + 1));
+
+blinkPoint(step.start.x, step.start.y).then(() => {
+  blinkPoint(step.end.x, step.end.y).then(() => {
+    drawSegmentProgressively(step.start, step.end, () => {
+      setTimeout(() => {
+        currentTutorialStep++;
+        playTutorialStep();
+      }, 600);
+    }, true);
+  });
+});
+
+
+}
+
+
+  // ===============================
+  //   INTERACTION : CLIC SUR LA GRILLE
+  // ===============================
+
+canvas.addEventListener("click", (e) => {
+
+  if (!timerRunning) startTimer();
+  if (tutorialRunning) return;  // Le tutoriel bloque le jeu, mais pas le son
+
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
+
+  const x = Math.round((mx - offset) / spacing);
+  const y = Math.round((my - offset) / spacing);
+
+  if (x < 0 || x >= size || y < 0 || y >= size) {
+    flash("Hors grille", "error");
+    playErrorSound();
+    selectedStart = null;
+    return;
+  }
+
+  if (!selectedStart) {
+    playClickSound();
+    selectedStart = { x, y };
+    return;
+  }
+
+  const result = getSegmentBetween(selectedStart, { x, y });
+  selectedStart = null;
+
+  if (result) {
+    playSuccessSound();
+    validatedSegments.push(result);
+    drawSegment(result.points);
+    score++;
+    updateCounters();
+    appendHistoryEntry(result.points, result.activeCount);
+    updateTutorialButtonState();
+    checkGameOver();
+  }
+});
+
+
+  // ===============================
+  //   BOUTONS
+  // ===============================
+
+  document.getElementById("resetBtn").addEventListener("click", () => {
+  playClickSound();
+
+  // Remet tout à zéro (logique + UI + timer + historique + canvas)
+  resetGameState();
+
+  // Redémarrer la partie
+  initGame();
+});
+
+
+  document.getElementById("undoBtn").addEventListener("click", () => {
+    if (tutorialRunning) return;
+    undoLastMove();
+  });
+
+  document.getElementById("helpBtn").addEventListener("click", () => {
+    document.getElementById("helpOverlay").style.display = "flex";
+  });
+
+  document.getElementById("closeHelpBtn").addEventListener("click", () => {
+    document.getElementById("helpOverlay").style.display = "none";
+  });
+
+  document.getElementById("soundBtn").addEventListener("click", (e) => {
+    soundEnabled = !soundEnabled;
+    e.target.textContent = soundEnabled ? "Son : on" : "Son : off";
+  });
+
+
+// ===============================
+//   INITIALISATION
+// ===============================
+
+function initGame() {
+
+    const undoBtn = document.getElementById("undoBtn");
+    if (undoBtn) {
+        undoBtn.disabled = false;
+        undoBtn.classList.remove("disabled");
+    }
+
+    drawGrid();
+    drawMaltaCross();
+    updateCounters();
+    updateTutorialButtonState();
+}
+
+initGame();
+
+window.addEventListener("load", () => {
+  const bg = new Image();
+  bg.src = "images/monfond.jpg";
+
+  bg.onload = () => {
+    document.body.classList.add("bg-ready");
+
+    setTimeout(() => {
+      const el = document.getElementById("canvasContainer");
+      el.classList.add("show");
+      playSound("boardSound");
+    }, 700); // délai pour l’animation du plateau
+  };
+});
+
+function playSound(id) {
+  const audio = document.getElementById(id);
+  if (!audio) return;
+
+  audio.currentTime = 0;
+  audio.play();
+}
+  </script>
+
+</body>
+</html>
